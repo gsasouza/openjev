@@ -40,3 +40,62 @@ def resolve_cached_snapshot(model_id: str, revision: str, cache_root: str = DEFA
         f"No cached snapshot for {model_id} under {root}. Set the endpoint's Model "
         f"field to {model_id} so Runpod caches it before workers start."
     )
+
+
+def describe_cache(cache_root: str = DEFAULT_CACHE_ROOT, max_entries: int = 40) -> dict:
+    """Report what is actually on disk around the cache root.
+
+    Worker container logs are not always retrievable, so a startup failure has
+    to be able to explain itself through the job response instead. This walks
+    the mount point and the cache tree and reports what exists, including
+    whether snapshot entries are symlinks into a blobs directory.
+    """
+    report: dict = {"cache_root": cache_root}
+    root = Path(cache_root)
+
+    probes = ["/runpod-volume", "/runpod-volume/huggingface-cache", cache_root]
+    report["exists"] = {probe: Path(probe).is_dir() for probe in probes}
+
+    def listing(path: Path) -> list[str]:
+        try:
+            return sorted(entry.name for entry in path.iterdir())[:max_entries]
+        except OSError as error:
+            return [f"<unreadable: {error}>"]
+
+    for probe in probes:
+        candidate = Path(probe)
+        if candidate.is_dir():
+            report.setdefault("listings", {})[probe] = listing(candidate)
+
+    if root.is_dir():
+        models = {}
+        for model_dir in sorted(root.iterdir())[:max_entries]:
+            if not model_dir.is_dir():
+                continue
+            entry: dict = {"contents": listing(model_dir)}
+            snapshots = model_dir / "snapshots"
+            if snapshots.is_dir():
+                entry["snapshots"] = listing(snapshots)
+                for snap in sorted(snapshots.iterdir())[:2]:
+                    if snap.is_dir():
+                        files = sorted(snap.iterdir())[:max_entries]
+                        entry["snapshot_sample"] = {
+                            "name": snap.name,
+                            "files": [f.name for f in files],
+                            "symlinks": {
+                                f.name: (str(f.resolve()), f.resolve().exists())
+                                for f in files
+                                if f.is_symlink()
+                            },
+                        }
+                        break
+            refs_main = model_dir / "refs" / "main"
+            if refs_main.is_file():
+                try:
+                    entry["refs_main"] = refs_main.read_text().strip()
+                except OSError as error:
+                    entry["refs_main"] = f"<unreadable: {error}>"
+            models[model_dir.name] = entry
+        report["models"] = models
+
+    return report

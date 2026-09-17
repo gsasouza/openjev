@@ -45,3 +45,36 @@ def test_empty_cache_is_rejected(tmp_path):
 def test_model_id_must_be_org_slash_name(tmp_path):
     with pytest.raises(RuntimeError, match="<org>/<name>"):
         resolve_cached_snapshot("Qwen3.5-4B", PINNED, str(tmp_path))
+
+
+def test_describe_cache_reports_what_exists(tmp_path):
+    from worker_cache import describe_cache
+
+    build_cache(tmp_path, OTHER, refs_main=OTHER)
+    report = describe_cache(str(tmp_path))
+
+    assert report["cache_root"] == str(tmp_path)
+    assert report["exists"][str(tmp_path)] is True
+    model = report["models"]["models--Qwen--Qwen3.5-4B"]
+    assert model["snapshots"] == [OTHER]
+    assert model["refs_main"] == OTHER
+
+
+def test_describe_cache_flags_broken_symlinks(tmp_path):
+    from worker_cache import describe_cache
+
+    model_root = build_cache(tmp_path, PINNED, refs_main=PINNED)
+    snapshot = model_root / "snapshots" / PINNED
+    (snapshot / "config.json").symlink_to(tmp_path / "blobs" / "missing")
+    report = describe_cache(str(tmp_path))
+
+    sample = report["models"]["models--Qwen--Qwen3.5-4B"]["snapshot_sample"]
+    assert sample["symlinks"]["config.json"][1] is False
+
+
+def test_describe_cache_survives_a_missing_root(tmp_path):
+    from worker_cache import describe_cache
+
+    report = describe_cache(str(tmp_path / "nope"))
+    assert report["exists"][str(tmp_path / "nope")] is False
+    assert "models" not in report
