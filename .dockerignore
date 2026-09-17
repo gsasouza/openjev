@@ -1,0 +1,17 @@
+.git
+.gitignore
+assets
+benchmarks
+demo
+docs
+examples
+manifests
+results
+tests
+webgpu-demo
+AGENTS.md
+THIRD_PARTY.md
+DEPLOY.md
+requirements.txt
+**/__pycache__
+**/*.pyc

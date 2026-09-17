@@ -1,0 +1,17 @@
+{
+  "input": {
+    "mode": "direct",
+    "rows": [
+      {
+        "id": "support-1",
+        "state": "The deployment completed at 14:02 UTC. Health checks passed in all three zones. No rollback was initiated.",
+        "question": "Is there evidence that the deployment succeeded?",
+        "options": [
+          { "id": "yes", "description": "The deployment succeeded." },
+          { "id": "no", "description": "The deployment did not succeed." },
+          { "id": "insufficient", "description": "The evidence is insufficient to decide." }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Every torch/transformers import in openjev_phase1 is function-local,
+      # so the unit tests run without the ~3 GB CUDA stack. --no-deps keeps
+      # the job under a minute; the real dependency pins are exercised by the
+      # image build, not here.
+      - name: Install package without heavy dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . --no-deps
+          pip install pytest==8.4.2
+
+      - name: Run unit tests
+        run: pytest tests -q
+
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package without heavy dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . --no-deps
+
+      # handler.py cannot be imported here: it loads the model at import time
+      # and load_causal_model requires a CUDA device. Compile it instead.
+      - name: Compile handler
+        run: python -m py_compile handler.py
+
+      - name: Check the sample request against the repo's own validator
+        run: |
+          python - <<'PY'
+          import json
+          from openjev_phase1.core import validate_row
+
+          payload = json.load(open("test_input.json"))["input"]
+          rows = payload.get("rows") or [payload["row"]]
+          for row in rows:
+              validate_row(row)
+          print(f"{len(rows)} row(s) valid, mode={payload.get('mode', 'direct')}")
+          PY
+
+      - name: Check the Dockerfile pins match manifests/models.json
+        run: |
+          python - <<'PY'
+          import json
+          import re
+
+          dockerfile = open("Dockerfile").read()
+          args = dict(re.findall(r"^ARG (OPENJEV_MODEL|OPENJEV_REVISION)=(\S+)", dockerfile, re.M))
+          manifest = json.load(open("manifests/models.json"))["models"]
+          pins = {model["source"]: model["revision"] for model in manifest}
+
+          source, revision = args["OPENJEV_MODEL"], args["OPENJEV_REVISION"]
+          if source not in pins:
+              raise SystemExit(f"{source} is not in manifests/models.json ({sorted(pins)})")
+          if pins[source] != revision:
+              raise SystemExit(f"{source}: Dockerfile pins {revision}, manifest pins {pins[source]}")
+          print(f"{source} @ {revision} matches the manifest")
+          PY
