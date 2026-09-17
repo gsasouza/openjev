@@ -1,0 +1,31 @@
+{
+  "input": {
+    "mode": "direct",
+    "rows": [
+      {
+        "id": "deploy-1",
+        "state": "The deployment completed at 14:02 UTC. Health checks passed in all three zones. No rollback was initiated.",
+        "question": "Is there evidence that the deployment succeeded?",
+        "options": [
+          { "id": "yes", "description": "The deployment succeeded." },
+          { "id": "no", "description": "The deployment did not succeed." },
+          { "id": "insufficient", "description": "The evidence is insufficient to decide." }
+        ]
+      },
+      {
+        "id": "refund-1",
+        "state": {
+          "order_total": 240,
+          "days_since_delivery": 41,
+          "policy_window_days": 30,
+          "item_condition": "unopened"
+        },
+        "question": "Does this order qualify for a refund under the stated policy?",
+        "options": [
+          { "id": "approve", "description": "Refund qualifies." },
+          { "id": "deny", "description": "Refund does not qualify." }
+        ]
+      }
+    ]
+  }
+}
