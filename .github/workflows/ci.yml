@@ -1,9 +1,9 @@
 name: CI
 
+# Runpod builds its image from whichever branch the endpoint tracks, so
+# every branch has to be tested, not just master.
 on:
   push:
-    branches: [master]
-  pull_request:
   workflow_dispatch:
 
 jobs:
