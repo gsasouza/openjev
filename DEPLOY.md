@@ -124,6 +124,28 @@ Then the endpoint can be created straight from the image reference.
 | Scaler | queue delay, 4 s | |
 | Timeout | 600000 ms | |
 
+## Measured behaviour
+
+Verified on endpoint `n6zjaghwtwi1b1`, GPU pool `AMPERE_24`:
+
+| | Baked weights | Model cache |
+| --- | --- | --- |
+| Image size | ~18 GB | torch + code |
+| Image pull to a worker | ~35 minutes | **7 seconds** |
+| Weights staged | in the image | **77 seconds** |
+| Runpod build | 10m47s | 3–9 minutes |
+
+Warm scoring is ~70 ms per decision (`forward_seconds` 0.067–0.074), one
+forward pass, no generation. The first row of a job pays CUDA kernel warmup
+and lands nearer 0.4 s.
+
+Both designs produce identical numbers: the same two rows scored on baked and
+on cached weights returned the same probabilities to every digit, with
+matching `prompt_sha256`. The cached response additionally carries
+`model.cache_path`, which is the only way to tell from a response which path
+served it — useful, because a stale worker on an older image will happily
+answer a request you believed was testing the new one.
+
 ## Local testing
 
 The handler cannot run on a machine without CUDA — `load_causal_model`
