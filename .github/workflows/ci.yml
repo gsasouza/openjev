@@ -26,8 +26,11 @@ jobs:
           pip install -e . --no-deps
           pip install pytest==8.4.2
 
+      # `python -m pytest`, not bare `pytest`: the repo root has to be on
+      # sys.path for tests/test_worker_cache.py to import worker_cache, which
+      # lives beside handler.py rather than in src/.
       - name: Run unit tests
-        run: pytest tests -q
+        run: python -m pytest tests -q
 
   worker:
     runs-on: ubuntu-latest
@@ -46,7 +49,7 @@ jobs:
       # handler.py cannot be imported here: it loads the model at import time
       # and load_causal_model requires a CUDA device. Compile it instead.
       - name: Compile handler
-        run: python -m py_compile handler.py
+        run: python -m py_compile handler.py worker_cache.py
 
       - name: Check the sample request against the repo's own validator
         run: |

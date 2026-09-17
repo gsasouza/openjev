@@ -6,7 +6,6 @@ ARG OPENJEV_REVISION=851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    HF_HOME=/opt/hf \
     HF_HUB_DISABLE_TELEMETRY=1 \
     OPENJEV_MODEL=${OPENJEV_MODEL} \
     OPENJEV_REVISION=${OPENJEV_REVISION}
@@ -29,12 +28,13 @@ COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 RUN pip install . runpod==1.12.0
 
-# Bake the pinned weights into the image so a scale-to-zero cold start never
-# downloads them. Keep this after the dependency layers: it is the large one.
-RUN python -c "\
-from huggingface_hub import snapshot_download; \
-snapshot_download('${OPENJEV_MODEL}', revision='${OPENJEV_REVISION}')"
-ENV HF_HUB_OFFLINE=1
+# Weights are NOT baked in. Runpod's model cache supplies them under
+# /runpod-volume/huggingface-cache/hub, which keeps this image small enough for
+# a worker to pull quickly — an image carrying the weights took over 25 minutes
+# to reach a worker and never finished starting. Offline mode makes a cache miss
+# fail loudly instead of silently downloading 8 GB on every cold start.
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
 
 COPY handler.py test_input.json ./
 

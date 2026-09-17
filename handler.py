@@ -18,15 +18,21 @@ from openjev_phase1.direct import score as direct_score
 from openjev_phase1.reranker import score as reranker_score
 from openjev_phase1.serial import SerialPrefixScorer
 from openjev_phase1.shared import score_shared
+from worker_cache import DEFAULT_CACHE_ROOT, resolve_cached_snapshot
 
 MODEL_SOURCE = os.environ["OPENJEV_MODEL"]
 MODEL_REVISION = os.environ["OPENJEV_REVISION"]
 MAX_TOKENS = int(os.environ.get("OPENJEV_MAX_TOKENS", "4096"))
 MAX_ROWS = int(os.environ.get("OPENJEV_MAX_ROWS", "64"))
 DEFAULT_MODE = os.environ.get("OPENJEV_MODE", "direct")
+CACHE_ROOT = os.environ.get("OPENJEV_CACHE_ROOT", DEFAULT_CACHE_ROOT)
 MODES = ("direct", "serial", "shared", "reranker")
 
-MODEL, TOKENIZER, METADATA = load_causal_model(MODEL_SOURCE, MODEL_REVISION)
+MODEL_PATH = resolve_cached_snapshot(MODEL_SOURCE, MODEL_REVISION, CACHE_ROOT)
+MODEL, TOKENIZER, METADATA = load_causal_model(MODEL_PATH, MODEL_REVISION)
+# load_causal_model reports the path it was handed; keep the Hub id in the
+# provenance that ships with every scored row.
+METADATA = {**METADATA, "source": MODEL_SOURCE, "cache_path": MODEL_PATH}
 
 
 def collect_rows(payload: dict) -> list[dict]:
