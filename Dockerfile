@@ -36,6 +36,6 @@ RUN pip install . runpod==1.12.0
 ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1
 
-COPY handler.py test_input.json ./
+COPY handler.py worker_cache.py test_input.json ./
 
 CMD ["python", "-u", "handler.py"]
